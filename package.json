@@ -1,0 +1,24 @@
+{
+  "name": "video-exploder",
+  "version": "1.0.0",
+  "description": "",
+  "main": "echo.js",
+  "dependencies": {
+    "ffmpeg-async": "^1.0.6",
+    "linux-commands-async": "^1.3.6"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jayarray/video-exploder.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jayarray/video-exploder/issues"
+  },
+  "homepage": "https://github.com/jayarray/video-exploder#readme"
+}
