@@ -23,7 +23,9 @@ class Spot {
       constructor() {
         this.args = {
           width: 5,
-          height: 5
+          height: 5,
+          shape: SHAPES.circle,
+          padding: 1
         };
       }
 
@@ -58,6 +60,11 @@ class Spot {
 
 //--------------------------------
 
+
+
+
+//--------------------------------
+
 class ShapeAbstraction {
   constructor(builder) {
     this.source = builder.args.source;
@@ -73,7 +80,13 @@ class ShapeAbstraction {
   static get Builder() {
     class Builder {
       constructor() {
-        this.args = {};
+        this.args = {
+          edge: 0,
+          edgeColor: 'gray',
+          backgroundColor: 'black',
+          brightness: 0,
+          contrast: 0
+        };
       }
 
       source(str) {
@@ -126,7 +139,7 @@ class ShapeAbstraction {
 
   Render(seqName, outputDir) {
     return new Promise((resolve, reject) => {
-
+      // Turn video into image sequence
     });
   }
 }
