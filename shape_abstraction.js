@@ -192,29 +192,72 @@ function Spotify(imgSource, allArgs, dest) {
                       return;
                     }
 
-                    // Get xmin
-                    LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:ceil(${data.ww}/${data.pw})]`, 'info:']).then(xminOutput => {
-                      data.xmin = Number(xminOutput.stdout);
+                    // Create B1 temp cache
 
-                      // Get ymin
-                      LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:ceil(${data.hh}/${data.ph})]`, 'info:']).then(yminOutput => {
-                        data.ymin = Number(yminOutput.stdout);
+                    let tmpB1 = Path.join(parentDir, `spots_1_$$.cache`);
+                    LinuxCommands.File.Create(tmpB1, '', LinuxCommands.Command.LOCAL).then(b1Success => {
 
-                        // Get www                      
-                        LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:${data.xmin}*${data.pw}]`, 'info:']).then(wwwOutput => {
-                          data.www = Number(wwwOutput.stdout);
+                      // Create B2 temp cache
 
-                          // Get hhh                      
-                          LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:${data.ymin}*${data.ph}]`, 'info:']).then(hhhOutput => {
-                            data.hhh = Number(hhhOutput.stdout);
+                      let tmpB2 = Path.join(parentDir, `spots_2_$$.cache`);
+                      LinuxCommands.File.Create(tmpB2, '', LinuxCommands.Command.LOCAL).then(b2Success => {
 
-                            // Process image
-                                                
+                        // Get xmin
+                        LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:ceil(${data.ww}/${data.pw})]`, 'info:']).then(xminOutput => {
+                          data.xmin = Number(xminOutput.stdout);
 
-                          }).catch(error => reject(`Failed to get hhh value: ${error}`));
-                        }).catch(error => reject(`Failed to get www value: ${error}`));
-                      }).catch(error => reject(`Failed to get ymin value: ${error}`));
-                    }).catch(error => reject(`Failed to get xmin value: ${error}`));
+                          // Get ymin
+                          LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:ceil(${data.hh}/${data.ph})]`, 'info:']).then(yminOutput => {
+                            data.ymin = Number(yminOutput.stdout);
+
+                            // Get www                      
+                            LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:${data.xmin}*${data.pw}]`, 'info:']).then(wwwOutput => {
+                              data.www = Number(wwwOutput.stdout);
+
+                              // Get hhh                      
+                              LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:${data.ymin}*${data.ph}]`, 'info:']).then(hhhOutput => {
+                                data.hhh = Number(hhhOutput.stdout);
+
+                                // Process image
+
+                                let cmd = 'convert';
+                                cmd += ` \\( ${tmpA1} -define distort:viewport=${data.www}x${data.hhh}+0+0 -virtual-pixel mirror -distort SRT 0`;
+                                cmd += ` -scale ${data.xmin}x${data.ymin}! -scale ${data.www}x${data.hhh}! -crop ${data.ww}x${data.hh}+0+0 +repage \\)`;
+                                cmd += ` \\( ${tmpA2} -write mpr:tile +delete -size ${data.ww}x${data.hh}! tile:mpr:tile \\)`;
+
+                                if (allArgs.edge == 0) {
+                                  cmd += ' -alpha off -compose copy_opacity -composite -compose over';
+                                  cmd += ` -background ${allArgs.backgroundColor} -flatten ${dest}`;
+                                }
+                                else {
+                                  cmd += ` \\( -clone 1 -threshold 0 -edge ${allArgs.edge} -clamp -fill ${allArgs.edgeColor} -opaque white -transparent black \\)`;
+                                  cmd += ' \\( -clone 0 -clone 1 -alpha off -compose copy_opacity -composite -compose over';
+                                  cmd += ` -background ${allArgs.backgroundColor} - flatten \\)`;
+                                  cmd += ` -delete 0,1 +swap -compose over -composite ${dest}`;
+                                }
+
+                                LinuxCommands.Command.LOCAL.Execute(cmd, []).then(imgProcOutput => {
+                                  if (imgProcOutput.stderr) {
+                                    reject(`Error processing image: ${imgProcOutput.stderr}`);
+                                    return;
+                                  }
+
+                                  // Clean up temp files
+                                  LinuxCommands.Remove.Files([tmpA1, tmpB1, tmpA2, tmpB2], LinuxCommands.Command.LOCAL).then(cleanUpSuccess => {
+
+                                    // Clean up data
+                                    data = {};
+
+                                    // Finish
+                                    resolve();
+                                  }).catch(error => reject(`Failed to clean up temp files: ${error}`));
+                                }).catch(error => reject(`Failed to process image: ${error}`));
+                              }).catch(error => reject(`Failed to get hhh value: ${error}`));
+                            }).catch(error => reject(`Failed to get www value: ${error}`));
+                          }).catch(error => reject(`Failed to get ymin value: ${error}`));
+                        }).catch(error => reject(`Failed to get xmin value: ${error}`));
+                      }).catch(error => reject(`Failed to create tmpB2 file: ${error}`));
+                    }).catch(error => reject(`Failed to create tmpB1 file: ${error}`));
                   }).catch(error => reject(`Failed to create spot file: ${error}`));
                 }).catch(error => reject(`Failed to get scy value: ${error}`));
               }).catch(error => reject(`Failed to get scx value: ${error}`));
@@ -222,7 +265,7 @@ function Spotify(imgSource, allArgs, dest) {
           }).catch(error => reject(`Failed to get sw value: ${error}`));
         }).catch(error => reject(`Failed to get hh value: ${error}`));
       }).catch(error => reject(`Failed to get ww value: ${error}`));
-    }).catch(`Failed to create tmpA1 file: ${error}`);
+    }).catch(error => reject(`Failed to create tmpA1 file: ${error}`));
   });
 }
 
@@ -237,6 +280,8 @@ class ShapeAbstraction {
     this.backgroundColor = builder.args.backgroundColor;
     this.edge = builder.args.edge;
     this.edgeColor = builder.args.edgeColor;
+    this.createVideo = builder.args.createVideo;
+    this.videoFormat = builder.args.videoFormat;
   }
 
   static get Builder() {
@@ -247,7 +292,9 @@ class ShapeAbstraction {
           edgeColor: 'gray',
           backgroundColor: 'black',
           brightness: 0,
-          contrast: 0
+          contrast: 0,
+          createVideo: false,
+          videoFormat: 'mp4'
         };
       }
 
@@ -291,6 +338,15 @@ class ShapeAbstraction {
         return this;
       }
 
+      createVideo(format) {
+        this.args.createVideo = true;
+
+        if (format)
+          this.args.videoFormat = format;
+
+        return this;
+      }
+
       build() {
         return new ShapeAbstraction(this);
       }
@@ -308,23 +364,27 @@ class ShapeAbstraction {
         // Get dest format string
 
         let digitCount = frameCount.toString().length;
-        let formatStr = `${seqName}_ % `;
+        let formatStr = `${seqName}_`;
+
+        let numberFormatStr = '%';
 
         if (digitCount < 10)
-          formatStr += `0${digitCount}`;
+          numberFormatStr += `0${digitCount}`;
         else
-          formatStr += digitCount.toString();
-        formatStr += `d.${format}`;
+          numberFormatStr += digitCount.toString();
+        numberFormatStr += `d`;
+
+        formatStr += `${numberFormatStr}.${format}`;
 
         let destFormatStr = Path.join(outputDir, formatStr);
-
+        let frameStartNumber = 1;
 
         // Turn video into image sequence
-        Ffmpeg.Video.ExtractImages(this.source, destFormatStr, frameStartNumber, fps).then(success => {
+        Ffmpeg.Video.ExtractImages(this.source, destFormatStr, frameStartNumber, this.fps).then(success => {
 
           // Get paths to images in sequence
 
-          let pattern = `${seqName}_ *.${format}`;
+          let pattern = `${seqName}_*.${format}`;
 
           LinuxCommands.Find.FilesByName(outputDir, pattern, 1, LinuxCommands.Command.LOCAL).then(paths => {
 
@@ -333,10 +393,46 @@ class ShapeAbstraction {
             let filepaths = paths.paths;
             filepaths.sort();
 
-            // 
-          }).catch();
-        }).catch();
-      }).catch();
+            // Apply effect to each frame
+
+            let i = 0; // DEBUG
+
+            let apply = (filepaths) => {
+              return new Promise((resolve, reject) => {
+                if (filepaths.length == 0) {
+                  resolve();
+                  return;
+                }
+
+                console.log(`  i = ${i}`);
+
+                let currFilepath = filepaths[0];
+
+                Spotify(currFilepath, this.allArgs, currFilepath).then(success => {
+                  i += 1;  // DEBUG
+
+                  resolve(apply(filepaths.slice(1)));
+                }).catch(error => reject(error));
+              });
+            };
+
+            apply(filepaths).then(success => {
+
+              // Check if video needs to be created
+
+              if (this.createVideo) {
+                let videoDest = Path.join(outputDir, `${seqName}_VIDEO.${this.videoFormat}`);
+                Ffmpeg.Video.Create(this.fps, destFormatStr, [], videoDest).then(success => {
+                  resolve();
+                }).catch(error => reject(`Failed to create video from spotified sequence: ${error}`));
+              }
+              else {
+                resolve();
+              }
+            }).catch(error => reject(error));
+          }).catch(error => reject(error));
+        }).catch(error => reject(error));
+      }).catch(error => reject(error));
     });
   }
 }
