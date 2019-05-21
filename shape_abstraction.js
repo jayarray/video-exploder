@@ -115,7 +115,9 @@ function Spotify(imgSource, allArgs, dest) {
 
     // Create source temp file
 
-    let tmpA1 = Path.join(parentDir, `spots_1_$$.mpc`);
+    let guid = new Guid();
+    let a1Guid = guid.Create(16);
+    let tmpA1 = Path.join(parentDir, `spots_1_${a1Guid}.mpc`);
     let briConStr = allArgs.brightness == 0 && allArgs.contrast == 0 ? null : `-brightness-contrast ${allArgs.brightness},${allArgs.contrast}`;
 
     let tmpA1Args = ['-quiet', imgSource];
@@ -131,27 +133,27 @@ function Spotify(imgSource, allArgs, dest) {
 
       // Get ww
       LinuxCommands.Command.LOCAL.Execute('convert', [tmpA1, '-ping', '-format', '%w', 'info:']).then(wwOutput => {
-        data.ww = Number(wwOutput.stdout);
+        data.ww = Number(wwOutput.stdout.trim());
 
         // Get hh
         LinuxCommands.Command.LOCAL.Execute('convert', [tmpA1, '-ping', '-format', '%h', 'info:']).then(hhOutput => {
-          data.hh = Number(hhOutput.stdout);
+          data.hh = Number(hhOutput.stdout.trim());
 
           // Get sw
-          LinuxCommands.Command.LOCAL.Execute(`convert echo ${allArgs.spot.SizeString()} | cut -dx -f1`).then(swOutput => {
-            data.sw = Number(swOutput.stdout);
+          LinuxCommands.Command.LOCAL.Execute(`echo ${allArgs.spot.SizeString()} | cut -dx -f1`, []).then(swOutput => {
+            data.sw = Number(swOutput.stdout.trim());
 
             // Get sh
-            LinuxCommands.Command.LOCAL.Execute(`convert echo ${allArgs.spot.SizeString()} | cut -dx -f2`).then(shOutput => {
-              data.sh = Number(shOutput);
+            LinuxCommands.Command.LOCAL.Execute(`echo ${allArgs.spot.SizeString()} | cut -dx -f2`, []).then(shOutput => {
+              data.sh = Number(shOutput.stdout.trim());
 
               // Get scx
               LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:(${data.sw}-1)/2]`, 'info:']).then(scxOutput => {
-                data.scx = Number(scxOutput);
+                data.scx = Number(scxOutput.stdout.trim());
 
                 // Get scy
                 LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:(${data.sh}-1)/2]`, 'info:']).then(scyOutput => {
-                  data.scy = Number(scyOutput);
+                  data.scy = Number(scyOutput.stdout.trim());
 
                   // Get lx, ly
                   data.lx = data.sw - 1;
@@ -169,7 +171,8 @@ function Spotify(imgSource, allArgs, dest) {
 
                   // Create spot template
 
-                  let tmpA2 = Path.join(`spots_2_$$.mpc`);
+                  let a2Guid = guid.Create(16);
+                  let tmpA2 = Path.join(parentDir, `spots_2_${a2Guid}.mpc`);
                   let args = ['-size', `${data.sw}x${data.sh}`, 'canvas:black', '+antialias', '-fill', 'white', '-draw'];
 
                   if (allArgs.spot.shape == SHAPES.circle)
@@ -194,29 +197,29 @@ function Spotify(imgSource, allArgs, dest) {
 
                     // Create B1 temp cache
 
-                    let tmpB1 = Path.join(parentDir, `spots_1_$$.cache`);
-                    LinuxCommands.File.Create(tmpB1, '', LinuxCommands.Command.LOCAL).then(b1Success => {
+                    let tmpB1 = Path.join(parentDir, `spots_1_${a1Guid}.cache`);
+                    LinuxCommands.Command.LOCAL.Execute('touch', [tmpB1]).then(b1Success => {
 
                       // Create B2 temp cache
 
-                      let tmpB2 = Path.join(parentDir, `spots_2_$$.cache`);
-                      LinuxCommands.File.Create(tmpB2, '', LinuxCommands.Command.LOCAL).then(b2Success => {
+                      let tmpB2 = Path.join(parentDir, `spots_2_${a2Guid}.cache`);
+                      LinuxCommands.Command.LOCAL.Execute('touch', [tmpB2]).then(b2Success => {
 
                         // Get xmin
                         LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:ceil(${data.ww}/${data.pw})]`, 'info:']).then(xminOutput => {
-                          data.xmin = Number(xminOutput.stdout);
+                          data.xmin = Number(xminOutput.stdout.trim());
 
                           // Get ymin
                           LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:ceil(${data.hh}/${data.ph})]`, 'info:']).then(yminOutput => {
-                            data.ymin = Number(yminOutput.stdout);
+                            data.ymin = Number(yminOutput.stdout.trim());
 
                             // Get www                      
                             LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:${data.xmin}*${data.pw}]`, 'info:']).then(wwwOutput => {
-                              data.www = Number(wwwOutput.stdout);
+                              data.www = Number(wwwOutput.stdout.trim());
 
                               // Get hhh                      
                               LinuxCommands.Command.LOCAL.Execute('convert', ['xc:', '-format', `%[fx:${data.ymin}*${data.ph}]`, 'info:']).then(hhhOutput => {
-                                data.hhh = Number(hhhOutput.stdout);
+                                data.hhh = Number(hhhOutput.stdout.trim());
 
                                 // Process image
 
@@ -339,10 +342,10 @@ class ShapeAbstraction {
       }
 
       createVideo(format) {
-        this.args.createVideo = true;
-
-        if (format)
+        if (format) {
           this.args.videoFormat = format;
+          this.args.createVideo = true;
+        }
 
         return this;
       }
