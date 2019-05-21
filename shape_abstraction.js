@@ -118,11 +118,11 @@ function Spotify(imgSource, allArgs, dest) {
     let guid = new Guid();
     let a1Guid = guid.Create(16);
     let tmpA1 = Path.join(parentDir, `spots_1_${a1Guid}.mpc`);
-    let briConStr = allArgs.brightness == 0 && allArgs.contrast == 0 ? null : `-brightness-contrast ${allArgs.brightness},${allArgs.contrast}`;
+    let briConArgs = allArgs.brightness == 0 && allArgs.contrast == 0 ? null : ['-brightness-contrast', `${allArgs.brightness},${allArgs.contrast}`];
 
     let tmpA1Args = ['-quiet', imgSource];
-    if (briConStr)
-      tmpA1Args.push(`-brightness-contrast ${allArgs.brightness},${allArgs.contrast}`);
+    if (briConArgs)
+      tmpA1Args = tmpA1Args.concat(briConArgs);
     tmpA1Args.push('-clamp', '+repage', tmpA1);
 
     LinuxCommands.Command.LOCAL.Execute('convert', tmpA1Args).then(a1output => {
