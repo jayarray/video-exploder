@@ -424,10 +424,27 @@ class ShapeAbstraction {
               // Check if video needs to be created
 
               if (this.createVideo) {
-                let videoDest = Path.join(outputDir, `${seqName}_VIDEO.${this.videoFormat}`);
-                Ffmpeg.Video.Create(this.fps, destFormatStr, [], videoDest).then(success => {
-                  resolve();
-                }).catch(error => reject(`Failed to create video from spotified sequence: ${error}`));
+
+                // Check if original video has audio
+
+                let audioDest = Path.join(outputDir, `${seqName}_AUDIO.mp3`);
+                Ffmpeg.Video.ExtractAudio(this.source, audioDest).then(success => {
+
+                  // Check if audio was actually extracted
+
+                  LinuxCommands.Path.Exists(audioDest, LinuxCommands.Command.LOCAL).then(audioExists => {
+                    let audioSources = audioExists ? [audioDest] : [];
+                    let videoDest = Path.join(outputDir, `${seqName}_VIDEO.${this.videoFormat}`);
+
+                    Ffmpeg.Video.Create(this.fps, destFormatStr, audioSources, videoDest).then(success => {
+
+                      // Clean up temp audio file
+                      LinuxCommands.File.Remove(audioDest, LinuxCommands.Command.LOCAL).then(success => {
+                        resolve();
+                      }).catch(error => reject(error));
+                    }).catch(error => reject(`Failed to create video from spotified sequence: ${error}`));
+                  }).catch(error => reject(error));
+                }).catch(error => reject(error));
               }
               else {
                 resolve();
